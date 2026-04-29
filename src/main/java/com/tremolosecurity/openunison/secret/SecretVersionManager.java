@@ -223,7 +223,7 @@ public class SecretVersionManager {
         if (updateUrl != null && ! updateUrl.isBlank()) {
           ObjectNode toUpdate = mapper.createObjectNode();
           toUpdate.put("key_name","alias");
-          toUpdate.put("version",2);
+          toUpdate.put("version",newVersion);
 
           HttpClient updateClient = createInsecureClient();
 
