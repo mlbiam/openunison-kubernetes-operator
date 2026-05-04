@@ -182,6 +182,12 @@ public class SecretWatcher {
                 JsonNode obj = root.path("object");
 
                 String name = obj.path("metadata").path("name").asText();
+
+                String updateUrl = "";
+                if (obj.path("metadata").path("annotations") != null && obj.path("metadata").path("annotations").path("tremolo.io/update-webhook") != null) {
+                    updateUrl = obj.path("metadata").path("annotations").path("tremolo.io/update-webhook").asText();
+                }
+
                 String newRv = obj.path("metadata")
                         .path("resourceVersion").asText();
 
@@ -192,7 +198,7 @@ public class SecretWatcher {
                 if (nsSecrets != null) {
                     SecretToWatch secret = nsSecrets.get(name);
                     if (secret != null) {
-                        this.onSecret(namespace,secret.getName(),secret.getAlias());
+                        this.onSecret(namespace,secret.getName(),secret.getAlias(),updateUrl);
                     }
                 }
                 
@@ -251,8 +257,8 @@ public class SecretWatcher {
     }
 
 
-    public void onSecret(String namespace, String name, String alias) {
-        svm.onSecret(namespace,name,alias);
+    public void onSecret(String namespace, String name, String alias, String updateUrl) {
+        svm.onSecret(namespace,name,alias,updateUrl);
     }
 
     /**
@@ -267,14 +273,17 @@ public class SecretWatcher {
 class SecretToWatch {
     String name;
     String alias;
+    
 
     public SecretToWatch(String name) {
         this.name = name;
+    
     }
 
     public SecretToWatch(String name,String alias) {
         this.name = name;
         this.alias = alias;
+    
     }
 
     public String getName() {
@@ -284,6 +293,8 @@ class SecretToWatch {
     public String getAlias() {
         return this.alias;
     }
+
+
 
     @Override
     public boolean equals(Object o) {

@@ -8,7 +8,19 @@ import com.tremolosecurity.openunison.kubernetes.ClusterConnection;
 
 import java.net.URI;
 import java.net.http.*;
+import java.security.SecureRandom;
 
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLParameters;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
+import java.security.SecureRandom;
+import java.security.cert.X509Certificate;
+
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLParameters;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
 
 public class SecretVersionManager {
 
@@ -21,7 +33,7 @@ public class SecretVersionManager {
         this.cluster = cluster;
     }
 
-    public void onSecret(String namespace, String name, String alias) {
+    public void onSecret(String namespace, String name, String alias,String updateUrl) {
 
         System.out.println("********** namespace:" + namespace +
                 " / name:" + name +
@@ -32,9 +44,9 @@ public class SecretVersionManager {
             JsonNode existing = getSecretVersion(namespace, name);
 
             if (existing == null) {
-                createSecretVersion(namespace, name, alias);
+                createSecretVersion(namespace, name, alias,updateUrl);
             } else {
-                incrementSecretVersion(namespace, name, existing);
+                incrementSecretVersion(namespace, name, existing,updateUrl);
             }
 
         } catch (Exception e) {
@@ -69,7 +81,39 @@ public class SecretVersionManager {
         return mapper.readTree(response.body());
     }
 
-    private void createSecretVersion(String namespace, String name, String alias) throws Exception {
+    private static HttpClient createInsecureClient() throws Exception {
+
+        TrustManager[] trustAllCerts = new TrustManager[] {
+            new X509TrustManager() {
+                @Override
+                public void checkClientTrusted(X509Certificate[] chain, String authType) {}
+
+                @Override
+                public void checkServerTrusted(X509Certificate[] chain, String authType) {}
+
+                @Override
+                public X509Certificate[] getAcceptedIssuers() {
+                    return new X509Certificate[0];
+                }
+            }
+        };
+
+        SSLContext sslContext = SSLContext.getInstance("TLS");
+
+        sslContext.init(null, trustAllCerts, new SecureRandom());
+
+        SSLParameters sslParams = new SSLParameters();
+
+        // Disable hostname verification
+        sslParams.setEndpointIdentificationAlgorithm("");
+
+        return HttpClient.newBuilder()
+                .sslContext(sslContext)
+                .sslParameters(sslParams)
+                .build();
+    }
+
+    private void createSecretVersion(String namespace, String name, String alias, String updateUrl) throws Exception {
 
         ObjectNode root = mapper.createObjectNode();
 
@@ -104,11 +148,35 @@ public class SecretVersionManager {
         }
 
         System.out.println("Created SecretVersion " + namespace + "/" + name);
+
+        if (updateUrl != null && ! updateUrl.isBlank()) {
+          ObjectNode toUpdate = mapper.createObjectNode();
+          toUpdate.put("key_name","alias");
+          toUpdate.put("version",2);
+
+          HttpClient updateClient = createInsecureClient();
+
+          request = HttpRequest.newBuilder()
+                .uri(URI.create(updateUrl))
+                .header("Authorization", "Bearer " + cluster.loadToken())
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(toUpdate.toString()))
+                .build();
+
+          response =
+                updateClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+          if (response.statusCode() != 200) {
+            System.out.println("WARNING: could not update to " + updateUrl + " " + response.body());
+          }
+
+          updateClient.close();
+        }
     }
 
     private void incrementSecretVersion(String namespace,
                                         String name,
-                                        JsonNode existing) throws Exception {
+                                        JsonNode existing, String updateUrl) throws Exception {
 
         int currentVersion = existing
                 .path("spec")
@@ -151,5 +219,29 @@ public class SecretVersionManager {
         System.out.println("Incremented SecretVersion "
                 + namespace + "/" + name
                 + " to version " + newVersion);
+
+        if (updateUrl != null && ! updateUrl.isBlank()) {
+          ObjectNode toUpdate = mapper.createObjectNode();
+          toUpdate.put("key_name","alias");
+          toUpdate.put("version",newVersion);
+
+          HttpClient updateClient = createInsecureClient();
+
+          request = HttpRequest.newBuilder()
+                .uri(URI.create(updateUrl))
+                .header("Authorization", "Bearer " + cluster.loadToken())
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(toUpdate.toString()))
+                .build();
+
+          response =
+                updateClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+          if (response.statusCode() != 200) {
+            System.out.println("WARNING: could not update to " + updateUrl + " " + response.body());
+          }
+
+          updateClient.close();
+        }
     }
 }
