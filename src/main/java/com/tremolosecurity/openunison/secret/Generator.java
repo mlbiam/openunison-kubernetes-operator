@@ -926,12 +926,13 @@ public class Generator {
                 System.out.println("No changes to AMQ secret");
             } else {
                 IoK8sApiCoreV1Secret patch = new IoK8sApiCoreV1Secret();
-                patch.getMetadata().addOwnerReferencesItem(new IoK8sApimachineryPkgApisMetaV1OwnerReference()
-                    .apiVersion(ou.getApiVersion())
-                    .kind(ou.getKind())
-                    .name(ou.getMetadata().getName())
-                    .uid(ou.getMetadata().getUid())
-                    .controller(true)
+                patch.apiVersion(ou.getApiVersion())
+                .kind(ou.getKind())
+                .metadata(new IoK8sApimachineryPkgApisMetaV1ObjectMeta()
+                    .addOwnerReferencesItem(new IoK8sApimachineryPkgApisMetaV1OwnerReference()
+                        .name(ou.getMetadata().getName())
+                        .uid(ou.getMetadata().getUid())
+                        .controller(true))
                 );
                 patch.setData(new HashMap<String,byte[]>());
                 patch.getData().put("amq.p12", CertUtils.encodeKeyStoreToBytes(amqKS, ksPassword));
