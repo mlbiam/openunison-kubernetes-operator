@@ -932,6 +932,9 @@ public class Generator {
                     .addOwnerReferencesItem(new IoK8sApimachineryPkgApisMetaV1OwnerReference()
                         .name(ou.getMetadata().getName())
                         .uid(ou.getMetadata().getUid())
+                        .kind(ou.getKind())
+                        .apiVersion(ou.getApiVersion())
+
                         .controller(true))
                 );
                 patch.setData(new HashMap<String,byte[]>());
