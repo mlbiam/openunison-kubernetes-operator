@@ -926,8 +926,8 @@ public class Generator {
                 System.out.println("No changes to AMQ secret");
             } else {
                 IoK8sApiCoreV1Secret patch = new IoK8sApiCoreV1Secret();
-                patch.apiVersion(ou.getApiVersion())
-                .kind(ou.getKind())
+                patch.apiVersion("v1")
+                .kind("Secret")
                 .metadata(new IoK8sApimachineryPkgApisMetaV1ObjectMeta()
                     .addOwnerReferencesItem(new IoK8sApimachineryPkgApisMetaV1OwnerReference()
                         .name(ou.getMetadata().getName())
